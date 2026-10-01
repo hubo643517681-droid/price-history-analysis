@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>笔记本价格走势 · 复刻笔吧评测室风格仪表盘</title>
+<script src="echarts.min.js"></script>
+<style>
+  :root{
+    --blue:#1e7cf0; --orange:#f09a3e; --purple:#8b5cf6; --gray:#9aa5b1;
+    --oos:#57606c; --green:#47b04b; --red:#e8413c; --ink:#111827; --sub:#4b5563;
+    --line:#e5e7eb; --bg:#f5f7fa; --card:#ffffff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif; background:var(--bg); color:var(--ink); padding-bottom:60px;}
+  .num{font-family:Arial,"Segoe UI",sans-serif;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 20px;}
+
+  /* ---------- header ---------- */
+  header{padding:34px 0 10px;}
+  h1{font-size:30px; font-weight:800; letter-spacing:.5px;}
+  .h-sub{color:var(--sub); font-size:14px; margin-top:8px; line-height:1.7;}
+  .h-sub b{color:var(--ink);}
+
+  /* ---------- 结论条（暗色卡，复刻视频暗色插卡风） ---------- */
+  .verdicts{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin:22px 0 6px;}
+  .vcard{position:relative; overflow:hidden; border-radius:14px; padding:16px 16px 14px;
+    background:linear-gradient(140deg,#3d4757,#262e3a); color:#fff; border:1.5px solid rgba(255,255,255,.14);}
+  .vcard::before{content:attr(data-wm); position:absolute; right:-6px; bottom:-18px; font-size:56px; font-weight:900;
+    color:rgba(255,255,255,.05); white-space:nowrap; pointer-events:none;}
+  .vbadge{display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin-bottom:10px;}
+  .vnum{font-size:34px; font-weight:900; line-height:1.1;}
+  .vnum small{font-size:16px; font-weight:700; color:#c8d2e0;}
+  .vtxt{font-size:12px; color:#b9c3d2; margin-top:6px; line-height:1.55;}
+  .b-red{background:var(--red);} .b-dred{background:#b3261e;} .b-org{background:var(--orange); color:#3c2405;} .b-blu{background:#2f6fe4;}
+  .n-red{color:#ff6b62;} .n-org{color:#ffb45e;} .n-blu{color:#5fa1ff;}
+
+  /* ---------- 控制面板（白卡） ---------- */
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px 14px; margin-top:16px; box-shadow:0 1px 3px rgba(17,24,39,.05);}
+  .p-title{font-size:22px; font-weight:800;}
+  .p-sub{color:var(--sub); font-size:13px; margin-top:4px;}
+  .controls{display:flex; flex-wrap:wrap; gap:14px; margin-top:14px;}
+  .ctrl{flex:1 1 300px; min-width:260px;}
+  .ctrl label{display:block; font-size:13px; color:var(--sub); margin-bottom:6px; font-weight:600;}
+  .sel{position:relative;}
+  .sel-btn{width:100%; text-align:left; border:2px solid #2f6fe4; border-radius:10px; background:#fff; padding:9px 34px 9px 12px;
+    font-size:14.5px; font-weight:700; cursor:pointer; line-height:1.45; font-family:inherit;}
+  .sel-btn::after{content:"▾"; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:#2f6fe4; font-size:15px; pointer-events:none;}
+  .sel-btn .hl{background:var(--red); color:#fff; padding:1px 5px; border-radius:4px;}
+  .sel-list{position:absolute; z-index:30; top:calc(100% + 4px); left:0; right:0; max-height:320px; overflow:auto; background:#fff;
+    border:1px solid var(--line); border-radius:10px; box-shadow:0 8px 24px rgba(17,24,39,.14); display:none;}
+  .sel.open .sel-list{display:block;}
+  .sel-item{padding:9px 12px; font-size:13.5px; cursor:pointer; border-bottom:1px solid #f1f3f6; line-height:1.5;}
+  .sel-item:hover{background:#eef4ff;}
+  .sel-item .hl{background:var(--red); color:#fff; padding:0 4px; border-radius:3px;}
+  .sel-item small{color:var(--sub);}
+  .meta{margin-top:12px; font-size:13.5px; color:#1f2937; line-height:1.9;}
+  .meta .dim{color:var(--sub);}
+  .chip{display:inline-block; background:#111827; color:#fff; font-size:12px; font-weight:700; padding:2px 9px; border-radius:5px; vertical-align:1px;}
+  .chip.live{background:#0f8a3d;}
+
+  /* ---------- 图表卡 ---------- */
+  .chart-card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px 6px; margin-top:14px; box-shadow:0 1px 3px rgba(17,24,39,.05);}
+  .chart-top{display:flex; justify-content:space-between; align-items:center; padding:6px 8px 0;}
+  .y-cap{font-size:13px; color:#1f2937;}
+  .last{font-size:13.5px; color:var(--sub);}
+  .last b{color:var(--ink); font-size:15px;}
+  #chart{width:100%; height:470px;}
+  .legend{padding:2px 10px 10px; font-size:12.5px; color:var(--sub); line-height:2;}
+  .legend .sw{display:inline-block; width:11px; height:11px; border-radius:2px; margin:0 5px 0 12px; vertical-align:-1px;}
+  .legend .sw:first-child{margin-left:0;}
+  .legend .dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 5px 0 12px; vertical-align:-1px;}
+  .legend .dot:first-child{margin-left:0;}
+  .legend .tri{display:inline-block; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:11px solid var(--orange); margin:0 5px 0 12px; vertical-align:-1px;}
+
+  /* ---------- 暗色方法论区 ---------- */
+  .dark-zone{margin-top:34px; position:relative; border-radius:16px; padding:38px 30px 34px; overflow:hidden;
+    background:linear-gradient(140deg,#46505f 0%,#333c49 55%,#272f3a 100%); color:#fff;}
+  .dark-zone::before{content:"国补价格"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:170px; font-weight:900; color:rgba(255,255,255,.045); letter-spacing:10px; pointer-events:none; user-select:none;}
+  .dz-title{font-size:22px; font-weight:800; margin-bottom:6px; position:relative;}
+  .dz-sub{font-size:13px; color:#aeb8c6; margin-bottom:24px; position:relative;}
+  .method{display:flex; gap:26px; flex-wrap:wrap; align-items:center; justify-content:center; position:relative;}
+  .glass{background:#141d2b; border:1.5px solid #2f6fe4; border-radius:16px; padding:18px 22px; box-shadow:0 0 0 1px rgba(47,111,228,.25), 0 10px 30px rgba(0,0,0,.35); min-width:240px;}
+  .glass .tag{display:inline-block; background:#232f42; color:#9db4d8; font-size:12px; padding:3px 12px; border-radius:999px; margin-bottom:8px;}
+  .glass .val{color:#5fa1ff; font-weight:800;}
+  .formula{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .formula .op{font-size:44px; font-weight:300; color:#c3cdda;}
+  .formula .price{font-size:64px; font-weight:900; color:#7c8896; letter-spacing:1px;}
+  .formula .price em{font-style:normal; color:#fff;}
+  .formula .yen{font-size:40px; color:#7c8896; font-weight:800;}
+  .bubble{position:relative; background:linear-gradient(180deg,#4c8dff,#2f6fe4); border-radius:14px; padding:10px 26px; font-size:24px; font-weight:800;}
+  .bubble::after{content:""; position:absolute; left:60%; bottom:-10px; border:10px solid transparent; border-top-color:#2f6fe4; border-bottom:0;}
+  .rule-card{background:#141d2b; border:1.5px solid #2f6fe4; border-radius:12px; padding:14px 18px; font-size:14.5px; font-weight:700; line-height:1.8; max-width:230px; text-align:center;}
+
+  /* 整数价表 */
+  .table-wrap{position:relative; margin-top:30px;}
+  .table-title{font-size:20px; font-weight:800; text-align:center;}
+  .table-note{font-size:11.5px; color:#93a0b0; text-align:center; margin:4px 0 12px;}
+  table.ip{width:100%; border-collapse:collapse; background:#fff; color:#1f2937; font-size:13.5px;}
+  table.ip th{background:#f1f2f4; font-weight:800; padding:9px 12px; text-align:left; border-bottom:2px solid #d7dae0;}
+  table.ip td{padding:8px 12px; border-bottom:1px solid #e7e9ee;}
+  table.ip tr.hot td{background:#f6b7b4;}
+  table.ip tr.hot-row-outline{outline:3px solid var(--red); outline-offset:-3px;}
+  table.ip td.pct{font-family:Arial,sans-serif; font-weight:600;}
+  table.ip td.hot-pct{background:#f0807b; color:#7a120e; font-weight:800;}
+  table.ip td b{font-weight:800;}
+
+  footer{margin-top:36px; font-size:12.5px; color:#8a94a2; line-height:1.9;}
+  footer a{color:#2f6fe4; text-decoration:none;}
+
+  @media (max-width:860px){
+    .verdicts{grid-template-columns:1fr 1fr;}
+    .formula .price{font-size:44px;}
+    #chart{height:420px;}
+    .dark-zone::before{font-size:90px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>笔记本价格走势</h1>
+    <div class="h-sub">
+      复刻自 <b>笔吧评测室</b>《<a style="color:inherit" href="https://www.bilibili.com/video/BV1rDa36SErm/" target="_blank">吓哭了！最近一年笔记本电脑涨了多少？！</a>》的数据仪表盘风格 ·
+      数据截止到 <b class="num">2026-09-16</b><br>
+      ⚠ 本页数据为依据视频口播与画面<b>重建的近似演示数据</b>（每机型 6~10 个关键锚点），仅用于展示图表设计，非原始统计。
+    </div>
+  </header>
+
+  <!-- 结论条 -->
+  <div class="verdicts">
+    <div class="vcard" data-wm="涨">
+      <span class="vbadge b-red">主流价位</span>
+      <div class="vnum num n-red">+50%<small>↑</small></div>
+      <div class="vtxt">游戏本与核显本都逃不掉，5060 游戏本已跌破万元档断货</div>
+    </div>
+    <div class="vcard" data-wm="接力">
+      <span class="vbadge b-dred">小改款连看</span>
+      <div class="vnum num n-red">+80%<small>↑</small></div>
+      <div class="vtxt">25 款缺货下架，26 款只升级 CPU/电池就重新定价</div>
+    </div>
+    <div class="vcard" data-wm="扛">
+      <span class="vbadge b-org">高端本</span>
+      <div class="vnum num n-org">+40%<small>↑</small></div>
+      <div class="vtxt">5070Ti/5080 抗冲击稍强，但坚持有货的也涨了四成</div>
+    </div>
+    <div class="vcard" data-wm="稳">
+      <span class="vbadge b-blu">Mac 最稳</span>
+      <div class="vnum num n-blu">+20<small>~25%</small></div>
+      <div class="vtxt">6/25 官方一次性 +1500；MBP M4 Max 统一口径后唯一降价</div>
+    </div>
+  </div>
+
+  <!-- 控制面板 -->
+  <div class="panel">
+    <div class="p-title" id="pTitle">笔记本价格走势</div>
+    <div class="p-sub">数据截止到2026年9月16日</div>
+    <div class="controls">
+      <div class="ctrl">
+        <label>机型与配置</label>
+        <div class="sel" id="selModel">
+          <button class="sel-btn" id="selModelBtn" type="button"></button>
+          <div class="sel-list" id="selModelList"></div>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>对比机型（可选，A=蓝 / B=橙）</label>
+        <div class="sel" id="selComp">
+          <button class="sel-btn" id="selCompBtn" type="button"></button>
+          <div class="sel-list" id="selCompList"></div>
+        </div>
+      </div>
+      <div class="ctrl" style="flex:0 1 200px;">
+        <label>时间轴长度</label>
+        <div class="sel" id="selRange">
+          <button class="sel-btn" id="selRangeBtn" type="button">全宽 · 适应窗口</button>
+          <div class="sel-list" id="selRangeList"></div>
+        </div>
+      </div>
+    </div>
+    <div class="meta" id="metaLine"></div>
+    <div class="meta dim" id="statLine"></div>
+  </div>
+
+  <!-- 主图 -->
+  <div class="chart-card">
+    <div class="chart-top">
+      <div class="y-cap">国补口径价格（元）</div>
+      <div class="last" id="lastLine"></div>
+    </div>
+    <div id="chart"></div>
+    <div class="legend" id="legendSingle">
+      <span class="sw" style="background:var(--blue)"></span>蓝色：直接采用记录价
+      <span class="tri"></span>橙色：补算国补后的价格
+      <span class="sw" style="background:var(--purple)"></span>紫色：爆料凭证补充
+      <span class="dot" style="background:#fff;border:2px solid var(--gray)"></span>空心：邻近推定 / 不可信
+      <span class="sw" style="background:#57606c"></span>深灰：无货定格
+      <span style="margin-left:12px">┆ 虚线 = 5/10 起按日期规则采用　│ 实线 = 标价规则转向（2026-05-10）</span>
+      <br>
+      <span class="sw" style="background:var(--blue)"></span>覆盖条·有直接采用记录
+      <span class="sw" style="background:var(--green)"></span>仅补算 / 存疑记录
+      <span class="sw" style="background:#e3e6ea"></span>无记录
+      <span class="sw" style="background:#57606c"></span>无货 / 不可信
+    </div>
+    <div class="legend" id="legendComp" style="display:none">
+      <span class="sw" style="background:var(--blue)"></span>蓝色 = A 机型记录价（口径已统一）
+      <span class="sw" style="background:var(--orange)"></span>橙色 = B 机型记录价（口径已统一）
+      <span class="dot" style="background:#fff;border:2px solid var(--gray)"></span>空心 = 推定 / 不可信
+      <span style="margin-left:12px">对比玩法：老款 → 小改款「涨价接力」，看同一图就懂为什么 +80%</span>
+    </div>
+  </div>
+
+  <!-- 暗色方法论区 -->
+  <div class="dark-zone">
+    <div class="dz-title">他的数据是怎么洗到同一条曲线上的 —— 国补口径统一</div>
+    <div class="dz-sub">京东 2026-05-10 前后标价规则转向：之前页面价不含国补，之后已减国补。统一口径是整张图成立的前提。</div>
+
+    <div class="method">
+      <div class="glass">
+        <span class="tag">月份</span><br>
+        <span class="val" style="font-size:19px">2025年11月</span>
+        <div style="height:1px;background:#243248;margin:12px 0"></div>
+        <span class="tag">慢慢买记录的京东原价</span><br>
+        <span class="val num" style="font-size:34px">¥5,599.2</span>
+      </div>
+      <div class="formula">
+        <span class="op">÷</span><span class="op">0.8</span><span class="op">=</span>
+        <span class="yen">¥</span><span class="price num">69<em>99</em></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;align-items:center">
+        <div class="bubble">国补前价</div>
+        <div class="rule-card">逆算结果若匹配<br>99 / 98 / 49 / 48 等<br>整数标价 → 判定为有效价格</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-title">整数价月度占比</div>
+      <div class="table-note">“—”表示当日无记录　·　用整数标价占比衡量「页面价含不含国补」的渗透率</div>
+      <table class="ip" id="ipTable"></table>
+    </div>
+  </div>
+
+  <footer>
+    图表设计语言拆解与方案详见同目录 <b>视频图表拆解方案.md</b> · 原始分析对象：
+    <a href="https://www.bilibili.com/video/BV1rDa36SErm/" target="_blank">bilibili BV1rDa36SErm（笔吧评测室）</a><br>
+    本页为学习性质的样式复刻演示；价格数据为依据视频口播重建的近似值，可能不准确，不构成任何购买建议。
+  </footer>
+</div>
+
+<script>
+/* ================= 数据（依据视频口播与画面重建的近似锚点） =================
+   anchor: [日期, 价格, 类型, 备注?]
+   类型 adopt=直接采用(蓝圆) calc=补算国补(橙三角) tip=爆料凭证(紫) weak=推定/不可信(灰空心) oos=无货定格(深灰) */
+const M = (id,chip,rest,cfg,sku,status,extra,anchors,gaps)=>({id,chip,rest,cfg,sku,status,extra,anchors,gaps:gaps||[]});
+const MODELS = [
+ M('laiku','来酷斗战者 战7000','锐龙版 · R9 8940HX+RTX 5060 16G+1T · 184条记录',
+   'R9 8940HX+RTX 5060 16G+1T','SKU 100182050549','无货','紫色补充 2 条 · 邻近推定 35 条 · 灰色不可信 0 条 · 国补存疑 194 条',
+   [['2025-08-12',5599,'adopt','去年6月首发国补到手价5359.2，暑期维持5599'],
+    ['2025-11-02',5599.2,'adopt','用户确认同日爆料：非PLUS会员国补到手价 6999×80% = 5599.20'],
+    ['2025-12-08',6499,'calc','存储涨价传导 + 国补额度降低，涨到6500元左右'],
+    ['2026-01-12',6520,'calc','1月普遍6500元'],
+    ['2026-05-02',7500,'calc','5月初到手价跳到7500'],
+    ['2026-06-01',7224,'adopt','618窗口价，维持数日'],
+    ['2026-06-28',6501.78,'adopt','2026-05-10起按日期规则推定 来自原指定链接'],
+    ['2026-07-08',8700,'adopt','7月涨到8700'],
+    ['2026-08-18',8999,'calc','8-9月又涨一截；7月底512G缩水版也涨到8900'],
+    ['2026-09-16',9199,'oos','末次 ¥9,199，已无货']],
+   [['2026-02-01','2026-04-22']]),
+ M('shadow11','暗影精灵11 锐龙版','i7-14650HX+RTX 5060 16G+1T · 212条记录',
+   'i7-14650HX+RTX 5060 16G+1T','SKU 100090904018','无货','邻近推定 18 条 · 国补存疑 96 条',
+   [['2025-09-05',5999,'adopt','日常价最低点在2025年9月'],
+    ['2025-10-18',6299,'calc','10月开始涨'],
+    ['2025-11-11',6399,'adopt','配合双11活动仍可拿到更低价'],
+    ['2026-01-06',6600,'adopt','1月初6600'],
+    ['2026-05-02',7300,'calc','5/10后按新规则折算'],
+    ['2026-06-18',7100,'adopt','618还能7100买到，太良心'],
+    ['2026-07-06',8499,'adopt','7月日常价8499'],
+    ['2026-07-26',9999,'oos','7月底跳涨9999，大概率没货']]),
+ M('jiguangx','机械革命极光X 潮玩版','i7-14650HX+RTX 5060 16G+1T · 176条记录',
+   'i7-14650HX+RTX 5060 16G+1T','SKU 100108812304','已下架','备货充足、可信度高；原版双11曾5000出头，8月先下架',
+   [['2026-01-06',6800,'adopt','年初6800维持三个多月'],
+    ['2026-04-10',7000,'adopt','4月、5月涨两波'],
+    ['2026-05-03',7300,'calc','5/10规则折算'],
+    ['2026-06-02',7100,'adopt','618搞了几波促销'],
+    ['2026-06-26',7700,'adopt','之后7700维持到缺货'],
+    ['2026-08-22',7700,'oos','缺货定格']]),
+ M('tx6p','天选6 Pro','i7-14650HX+RTX 5060 16G+1T · 323条记录',
+   'i7-14650HX+RTX 5060 16G+1T','SKU 100223758220','已下架','其中灰色不可信 59 条 · 国补存疑 88 条',
+   [['2025-10-10',6800,'adopt','去年10月到手价稳定6800'],
+    ['2025-11-11',6399,'adopt','双11最低价6399'],
+    ['2026-01-15',7600,'adopt','26年一季度涨到7600'],
+    ['2026-04-05',8200,'calc','二季度平台价8200'],
+    ['2026-06-03',8500,'calc','4月起又一波上涨'],
+    ['2026-07-12',8999,'oos','7月缺货下架，有效价格定格在8999，留了个好名声']]),
+ M('tx7p','天选7 Pro','Ultra 7 255HX+RTX 5060 16G+1T · 154条记录',
+   'Ultra 7 255HX+RTX 5060 16G+1T','SKU 100266331088','在售','首发比6 Pro贵800元：CPU升级、屏幕加抗反',
+   [['2026-05-20',9199,'adopt','5月发布，首发价比天选6 Pro贵800多'],
+    ['2026-06-26',9500,'adopt','6月底涨几百，开始放飞'],
+    ['2026-07-15',10000,'adopt','7月涨到万元以上'],
+    ['2026-08-15',11000,'adopt','8月突破1.1万'],
+    ['2026-09-16',12000,'adopt','9月到手价已达1.2万，把「吓哭了」打在公屏上']]),
+ M('y7000p25','拯救者Y7000P 2025','i7-14650HX+RTX 5060 16G+1T · 453条记录',
+   'i7-14650HX+RTX 5060 16G+1T · 2.5K 240Hz 黑色','SKU 100226664582','无货','其中紫色补充 8 条 · 邻近推定 50 条 · 国补存疑 85 条 · 未采纳 1 条',
+   [['2025-08-05',7999.2,'calc','用户确认：2025年正常补前价9999元，按20%国补折算7999.20元'],
+    ['2025-10-22',7199,'weak','偶尔7100多的促销价；8-11月国补额度告急，多为正统补'],
+    ['2026-02-10',9599,'adopt','2月涨到9599，比25年底涨不少'],
+    ['2026-05-25',8999,'adopt','购物节期间原链接稍降一波'],
+    ['2026-07-08',11400,'calc','7、8月统一涨价'],
+    ['2026-08-05',12000,'adopt','8月稳定到手价12000'],
+    ['2026-09-12',12800,'oos','两个链接价差拉大，均无货']]),
+ M('y7000p26','拯救者Y7000P 2026','Ultra 7 255HX+RTX 5060 16G+1T · 121条记录',
+   'Ultra 7 255HX / RTX 5060 / 16GB / 1TB · 2.5K 240Hz 黑色','SKU 100349382092','无货','其中紫色补充 1 条 · 灰色不可信 29 条 · 国补存疑 0 条',
+   [['2026-05-19',9334.02,'calc','明确补前基数按年度国补统一计算 本轮新增自营商品链接'],
+    ['2026-05-28',8999,'adopt','首发到手价8999（慢慢买未含首发优惠）'],
+    ['2026-06-15',10500,'adopt','首发期后涨上去，基本10500'],
+    ['2026-07-10',11500,'adopt','7月涨到11500'],
+    ['2026-08-19',14500,'oos','8/19起暴涨14500；随后上512G缩水版11500卖了一个月']]),
+ M('hunterS','雷神猎人S','i9-13900HX+RTX 5070 Ti 16G+1T · 168条记录',
+   'i9-13900HX+RTX 5070 Ti 16G+1T · 240Hz 黑色','SKU 100191052208','在售','去年「7999买5070Ti」黄金年代的当事人',
+   [['2025-08-20',7999,'adopt','黄金年代：7999元买5070Ti'],
+    ['2025-09-12',7800,'adopt','8、9月常出现8000以下低价'],
+    ['2025-11-11',8000,'adopt','双11基本维持8000左右'],
+    ['2026-01-12',8300,'calc','国补额度减少涨几百'],
+    ['2026-04-08',9500,'adopt','4月后日常到手价9500'],
+    ['2026-06-17',8500,'weak','618期间8000多超低价，基本抢不到'],
+    ['2026-07-06',10000,'adopt','7月涨到1万'],
+    ['2026-08-12',10500,'adopt','8月又涨500'],
+    ['2026-09-16',11499,'adopt','9月再涨1000多；相比去年只涨3500，5070Ti里涨幅最小且在售']]),
+ M('rog9','ROG枪神9','i9-275HX+RTX 5070 Ti 16G+1T · 203条记录',
+   'i9-275HX+RTX 5070 Ti 16G+1T','SKU 100172445106','已下架','高端型号，先涨后降玩得很溜',
+   [['2025-08-15',13699,'adopt','去年8月最低价13699，日常13999'],
+    ['2025-11-11',13999,'adopt','11月先涨后降，日常14499最低13999，相当于没降'],
+    ['2025-12-12',14499,'adopt','12月维持14499'],
+    ['2026-01-16',13999,'adopt','26年初又降500，比较神奇'],
+    ['2026-04-10',16300,'calc','4月跳涨到16300'],
+    ['2026-06-17',15500,'adopt','618期间15500'],
+    ['2026-06-26',17999,'oos','6月底一直维持17999，随后下架']]),
+ M('canglong','苍龙16U','R9 9955HX+RTX 5080 32G+1T · 141条记录',
+   'R9 9955HX+RTX 5080 32G+1T','SKU 100217664452','无货','5080代表机型，涨得「可控」',
+   [['2025-08-20',13999,'adopt','去年8月还有13999'],
+    ['2026-02-10',14999,'adopt','2月出现14999到手价，涨幅可控'],
+    ['2026-04-16',15999,'calc','4、5月只涨1000'],
+    ['2026-05-26',15561.53,'adopt','2026-05-10起按日期规则推定 来自原指定链接'],
+    ['2026-06-15',17499,'calc','6月+1500，6/10后再+500'],
+    ['2026-07-26',18999,'oos','7月底涨到18999，之后为无效价格']]),
+ M('xx16-25','小新Pro 16 GT 2025','Ultra 5 225H+32G+1T · 286条记录',
+   'Ultra 5 225H+32G+1T','SKU 100150894197','已下架','核显本里坚持比较久的一位',
+   [['2025-08-15',5000,'adopt','去年8月到双11到手价稳定5000'],
+    ['2025-12-02',5359,'adopt','双11结束涨到5359'],
+    ['2026-02-10',5800,'adopt','26年一季度逐渐涨到5800'],
+    ['2026-05-06',6300,'adopt','5月起涨到6300，相比25年双11涨幅超25%'],
+    ['2026-06-16',6100,'weak','618出现两天促销'],
+    ['2026-08-01',8500,'oos','8月初跳涨8500，很快下架']]),
+ M('xx16-26','小新Pro 16 GT 2026','Ultra 5 338H+32G+1T · 198条记录',
+   'Ultra 5 338H+32G+1T · 99Wh 电池','SKU 100261058441','在售','只换了CPU和电池：5000 → 9000+，涨幅超80%',
+   [['2026-03-02',7200,'adopt','3月发布卖7200，比当时25款贵1600，很多人嫌贵'],
+    ['2026-04-08',9000,'adopt','4月直接暴涨到9000多，犹豫的人后悔了'],
+    ['2026-06-10',9300,'adopt','6月绝大部分时间9300（618活动其实在5月中）'],
+    ['2026-07-15',9350,'adopt','步子迈太大，7月没怎么涨'],
+    ['2026-08-22',8999,'weak','8月冲万元档，仍时不时8900多低价'],
+    ['2026-09-16',9889.2,'adopt','截止9/16在售']]),
+ M('wujie14x','无界14X','R7 H 255+32G+1T · 154条记录',
+   'R7 H 255+32G+1T · 2.8K 120Hz','SKU 100134716204','无货','高性价比轻薄本代表，换过好几次链接',
+   [['2026-01-26',3599,'adopt','能查到的从1月底开始，最低3500多'],
+    ['2026-02-20',3900,'adopt','日常价3900'],
+    ['2026-04-06',4200,'adopt','3月底到4月涨到4200，其实仍值得买'],
+    ['2026-05-08',4999,'oos','5月直接跳4999，618推荐时已断货']]),
+ M('wujiedz','无界14X 斗战版','R7 H 255+16G+512G · 143条记录',
+   'R7 H 255+16G+512G · 1200P 60Hz','SKU 100143760918','无货','缩水严重但真便宜：内存硬盘屏幕三缩',
+   [['2025-09-15',2399.2,'adopt','去年9月评测时国补价2399.2'],
+    ['2025-12-22',2720,'calc','年底涨到2700多'],
+    ['2026-02-12',3000,'adopt','26年2月突破3000'],
+    ['2026-05-12',3800,'adopt','5月涨到3800并维持很久'],
+    ['2026-07-02',3800,'oos','无货；第三方还有卖4000-4100，和去年9月比涨约70%']]),
+ M('tpx9','ThinkPad X9 15 Aura','Ultra 7 258V+32G+1T · 293条记录',
+   'Ultra 7 258V+32G+1T','SKU 100159394191','在售','高端轻薄本，扛成本冲击能力强',
+   [['2025-10-16',11499,'adopt','去年10月到今年1月中没调价，只跟随国补额度'],
+    ['2026-01-22',11299,'weak','1月底短暂降了一点'],
+    ['2026-03-10',11800,'calc','3月小涨500'],
+    ['2026-04-16',12800,'calc','4月涨了一大截'],
+    ['2026-05-28',12200,'adopt','5月底促销，和3、4月差不多价'],
+    ['2026-06-16',14000,'calc','6月日常价跳到14000多'],
+    ['2026-06-28',15999,'adopt','6月底奔到15999；在售，整体涨4500-5000，幅度40%多']]),
+ M('mbaM4','MacBook Air M4 13英寸','M4+16G+512G · 313条记录',
+   'M4+16G+512G','SKU 100124541023','无货','M4款清库存退场',
+   [['2025-08-16',7599,'adopt','25年3月发布9499，国补后7599'],
+    ['2025-09-10',6799,'adopt','8、9月京东降到6799'],
+    ['2025-11-11',5999,'adopt','双11低至5999，相当便宜'],
+    ['2026-02-10',6299,'adopt','进入2026价格比较稳定'],
+    ['2026-05-06',7099,'calc','5月初先涨（为618先涨后降）'],
+    ['2026-05-30',6599,'adopt','月底降回去，清库存；拼多多百补多次6500以下'],
+    ['2026-09-06',6999,'oos','M5上市后退场']]),
+ M('mbaM5','MacBook Air M5 13英寸','M5+16G+512G · 193条记录',
+   'M5+16G+512G','SKU 100190000001','在售','官方8499比上代同配还便宜1000，国补后7200',
+   [['2026-03-05',7200,'adopt','3月上市，官方8499（比上代同存储便宜1000），国补后7200'],
+    ['2026-05-28',6374,'adopt','京东5月底最低6374，淘宝拼多多一堆6099'],
+    ['2026-06-25',8499,'adopt','6/25苹果官宣上调1500，一夜之间全线跟涨'],
+    ['2026-07-22',7999,'weak','7、8月京东仍有长时间优惠价，没完全跟随官方'],
+    ['2026-09-16',8499,'adopt','9月恢复官方价8499；第三方常不到8000，学生教育优惠，实际涨幅约20%']]),
+ M('mbpM4max','MacBook Pro M4 Max 16英寸','M4 Max+48G+1T · 413条记录',
+   'M4 Max+48G+1T','SKU 100125418123','在售','链接来回切国补价，图上放原始数据；统一口径后全场唯一降价',
+   [['2025-08-25',29699,'adopt','统一国补口径后的基准价'],
+    ['2026-02-10',29499,'adopt','最近一年几乎没涨'],
+    ['2026-09-01',30999,'calc','9月初涨1500'],
+    ['2026-09-07',31999,'calc','补前基数按年度国补统一计算，不国补部分已换为有效日顺延'],
+    ['2026-09-12',29199,'adopt','随后掉下来，比年初还便宜几百——本次统计唯一降价的笔电']])
+];
+/* 整数价月度占比表（与视频 02:15 画面一致） */
+const IP_ROWS = [
+ ['2025-08',5,1,'96%',1],['2025-09',4,2,'95%',1],['2025-10',3,1,'86%',0],
+ ['2025-11',3,1,'70%',0],['2025-12','—',2,'89%',0],['2026-01','—',5,'87%',0],
+ ['2026-02',1,6,'68%',0],['2026-03',1,10,'74%',0,1],['2026-04',1,8,'38%',0,2],
+ ['2026-05',1,17,'24%',0,1],['2026-06','—',8,'26%',0],['2026-07','—',6,'37%',0],
+ ['2026-08','—',4,'48%',0],['2026-09','—',2,'53%',0]];
+
+/* ================= 通用 ================= */
+const $ = id=>document.getElementById(id);
+const chart = echarts.init($('chart'));
+const KIND_NAME = {adopt:'直接采用记录价',calc:'补算国补后价格',tip:'爆料凭证补充',weak:'邻近推定/不可信',oos:'无货定格'};
+const KIND_COLOR = {adopt:'#1e7cf0',calc:'#f09a3e',tip:'#8b5cf6',weak:'#9aa5b1',oos:'#57606c'};
+const ts = d=>new Date(d+'T00:00:00+08:00').getTime();
+const fmtP = v=>'¥'+Number(v).toLocaleString('zh-CN',{maximumFractionDigits:2});
+const END = ts('2026-09-25');
+
+let cur = MODELS[0], comp = null, range = 'full';
+
+/* URL 参数：?m=机型id&c=对比机型id&r=full|m12|m6|m3 */
+(function(){
+  try{
+    const qp = new URLSearchParams(location.search);
+    const qr = qp.get('r'); if(['full','m12','m6','m3'].includes(qr)) range = qr;
+    const fm = MODELS.find(m=>m.id===qp.get('m')); if(fm) cur = fm;
+    const fc = MODELS.find(m=>m.id===qp.get('c')); if(fc && fc.id!==cur.id) comp = fc;
+  }catch(e){}
+})();
+
+/* 自定义下拉 */
+function buildSel(selId, btnId, listId, items, onPick, curIdx, emptyLabel){
+  const sel=$(selId), btn=$(btnId), list=$(listId);
+  btn.onclick = e=>{ e.stopPropagation(); document.querySelectorAll('.sel').forEach(s=>{if(s!==sel)s.classList.remove('open')}); sel.classList.toggle('open'); };
+  list.innerHTML='';
+  items.forEach((it,i)=>{
+    const d=document.createElement('div'); d.className='sel-item';
+    if(it===null){ d.textContent = emptyLabel; d.style.color='#6b7280'; }
+    else d.innerHTML = '<span class="hl">'+it.chip+'</span> '+it.rest+' <small>· '+it.status+'</small>';
+    d.onclick = e=>{ e.stopPropagation(); sel.classList.remove('open'); onPick(it===null?null:it, i); };
+    list.appendChild(d);
+  });
+}
+document.addEventListener('click',()=>document.querySelectorAll('.sel').forEach(s=>s.classList.remove('open')));
+
+function renderSelectors(){
+  $('selModelBtn').innerHTML = '<span class="hl">'+cur.chip+'</span> '+cur.rest;
+  $('selCompBtn').innerHTML = comp ? '<span class="hl">'+comp.chip+'</span> '+comp.rest : '<span style="color:#6b7280;font-weight:600">不做对比（单机模式）</span>';
+  buildSel('selModel','selModelBtn','selModelList',MODELS,(m)=>{cur=m; renderAll();},null,'');
+  buildSel('selComp','selCompBtn','selCompList',[null].concat(MODELS.filter(m=>m.id!==cur.id)),(m)=>{comp=m; renderAll();},'','不做对比（单机模式）');
+  $('selRangeBtn').textContent = {full:'全宽 · 适应窗口',m12:'近 12 个月',m6:'近 6 个月',m3:'近 3 个月'}[range];
+}
+
+/* 元信息 */
+function renderMeta(){
+  $('pTitle').textContent = comp ? '笔记本价格走势与双机对比' : '笔记本价格走势';
+  const last = cur.anchors[cur.anchors.length-1];
+  $('metaLine').innerHTML =
+    (comp ? ('<b>A：</b>'+cur.chip+' '+cur.rest+'　<b style="color:var(--orange)">B：</b>'+comp.chip+' '+comp.rest+'<br>') :
+      ('<span class="dim">配置：</span>'+cur.cfg+' · <span class="dim">SKU</span> '+cur.sku.replace(/^SKU\s*/,'')+' · <span class="dim">当前状态：</span><span class="chip'+(cur.status==='在售'?' live':'')+'">'+cur.status+'</span><br>'));
+  if(!comp){
+    $('statLine').innerHTML = '价格记录 <b>'+cur.anchors.length+'</b> 条（其中'+cur.extra+'）　当前显示完整时段；选择“时间轴长度”可拉开相邻日期。';
+    $('lastLine').innerHTML = '末次 '+fmtP(last[1])+'　<span class="chip'+(cur.status==='在售'?' live':'')+'">'+cur.status+'</span>';
+  }else{
+    const lb=comp.anchors[comp.anchors.length-1];
+    $('statLine').innerHTML = '颜色与机型：蓝色=A 记录价，橙色=B 记录价；空心点为邻近推定，灰色虚线为 5/10 规则边界。底部覆盖条为 A 机型每日数据覆盖。';
+    $('lastLine').innerHTML = 'A 末次 '+fmtP(last[1])+'（'+cur.status+'）　B 末次 '+fmtP(lb[1])+'（'+comp.status+'）';
+  }
+  $('legendSingle').style.display = comp ? 'none' : '';
+  $('legendComp').style.display = comp ? '' : 'none';
+}
+
+/* 覆盖条分类色 */
+function dayColor(d){
+  let has=false, kind=null;
+  cur.anchors.forEach(a=>{ const t=ts(a[0]); if(d>=t && d<t+86400000){ has=true; kind=a[2]; } });
+  if(!has) return '#e3e6ea';
+  if(kind==='adopt') return '#1e7cf0';
+  if(kind==='weak'||kind==='oos') return '#57606c';
+  return '#47b04b';
+}
+
+/* 主图 */
+function renderChart(){
+  const modelStart = ts(cur.anchors[0][0]);
+  let xmin = modelStart - 12*86400000;
+  if(range==='m12') xmin = Math.max(xmin, ts('2025-09-16'));
+  if(range==='m6')  xmin = Math.max(xmin, ts('2026-03-16'));
+  if(range==='m3')  xmin = Math.max(xmin, ts('2026-06-16'));
+  const series = [];
+
+  if(!comp){
+    const groups = {};
+    cur.anchors.forEach(a=>{ (groups[a[2]]=groups[a[2]]||[]).push({value:[a[0],a[1]], note:a[3]||'', kind:a[2]}); });
+    Object.keys(groups).forEach(k=>{
+      const c = KIND_COLOR[k];
+      series.push({
+        name:KIND_NAME[k], type:'line', step:'end', data:groups[k],
+        symbol: (k==='calc'||k==='tip')?'triangle':'circle', symbolSize:8,
+        itemStyle:{ color: (k==='weak')?'#ffffff':c, borderColor:c, borderWidth:k==='weak'?1.6:0 },
+        lineStyle:{ color:c, width:2 }, z:10, connectNulls:false
+      });
+    });
+    /* 标注气泡：同屏最多两张（最早一条 + 居中一条），按位置智能选边避免溢出与重叠 */
+    const noted = cur.anchors.filter(a=>a[3]);
+    const pick = [];
+    if(noted.length) pick.push(noted[0]);
+    if(noted.length>2){ pick.push(noted[Math.floor(noted.length/2)]); }
+    else if(noted.length===2){ pick.push(noted[1]); }
+    if(pick.length===2 && pick[0]===pick[1]) pick.pop();
+    const t0 = ts(cur.anchors[0][0]), t1 = END;
+    const sortedP = cur.anchors.map(a=>a[1]).sort((x,y)=>x-y);
+    const medianP = sortedP[Math.floor(sortedP.length/2)];
+    if(pick.length){
+      series[0].markPoint = { silent:true, animation:false, data: pick.map((a,i)=>{
+        const frac = (ts(a[0])-t0)/(t1-t0);
+        const dx = (frac<0.5 ? 155 : -155);
+        const dy = (a[1]>=medianP ? 84 : -88);
+        return {
+        coord:[ts(a[0]),a[1]], symbol:'roundRect', symbolSize:[2,2], symbolOffset:[dx,dy],
+        label:{ formatter:'{h|'+a[0]+' '+fmtP(a[1])+'}\n'+String(a[3]).split('，').map(s=>'{t|'+s+'}').join('\n'),
+          rich:{ h:{ backgroundColor:'#ffffff', borderColor:'#d9dee5', borderWidth:1, borderRadius:7,
+                   padding:[7,11], color:'#111827', fontWeight:'bold', fontSize:13, fontFamily:'Microsoft YaHei',
+                   shadowColor:'rgba(17,24,39,.13)', shadowBlur:9 },
+                 t:{ backgroundColor:'#ffffff', borderColor:'#d9dee5', borderWidth:1, borderRadius:7,
+                   padding:[4,11], color:'#4b5563', fontSize:12, fontFamily:'Microsoft YaHei',
+                   shadowColor:'rgba(17,24,39,.13)', shadowBlur:9 } } },
+        itemStyle:{color:'rgba(0,0,0,0)'}
+      };
+      })};
+    }
+    /* 缺价格数据窗口 */
+    if(cur.gaps.length){
+      series[0].markArea = { silent:true, data: cur.gaps.map(g=>([
+        {xAxis:g[0], itemStyle:{color:'rgba(255,255,255,.55)', borderColor:'#9aa5b1', borderWidth:1.4, borderType:'dashed', borderRadius:6},
+         label:{show:true, position:'inside', color:'#6b7480', fontSize:13, formatter:'缺价格数据'}},
+        {xAxis:g[1]}
+      ]))};
+    }
+  } else {
+    [['A',cur,'#1e7cf0'],['B',comp,'#f09a3e']].forEach(([tag,m,c])=>{
+      series.push({ name:tag+' '+m.chip, type:'line', step:'end',
+        data:m.anchors.map(a=>({value:[a[0],a[1]], note:a[3]||'', kind:a[2]})),
+        symbol:'circle', symbolSize:7,
+        itemStyle:{ color:c, borderColor:'#ffffff', borderWidth:1 },
+        lineStyle:{ color:c, width:2 }, z:10, connectNulls:false });
+    });
+  }
+
+  /* 参考线：5/10 转向（实线）+ 5/10 规则边界（虚线） */
+  series[0].markLine = { silent:true, symbol:'none', animation:false, data:[
+    { xAxis:'2026-05-10', lineStyle:{color:'#8f99a6', width:1.3},
+      label:{formatter:'5/10 标价规则转向', position:'end', distance:10, color:'#6b7480', fontSize:11.5} },
+    { xAxis:'2026-04-20', lineStyle:{color:'#b6bec8', width:1.2, type:'dashed'},
+      label:{formatter:'5/10 起按日期规则采用', position:'end', distance:24, color:'#9aa5b1', fontSize:11.5} }
+  ]};
+
+  /* 每日数据覆盖条 */
+  const days=[]; for(let t=xmin; t<=END; t+=86400000) days.push(t);
+  series.push({ name:'每日数据覆盖', type:'custom', xAxisIndex:1, yAxisIndex:1, silent:true, z:2,
+    data: days.map(t=>[t,1]),
+    renderItem:(params, api)=>{
+      const x=api.coord([api.value(0),0.5])[0];
+      const x2=api.coord([api.value(0)+86400000,0.5])[0];
+      const w=Math.max(x2-x-0.8, 1.2);
+      const top=api.coord([api.value(0),1])[1];
+      const h=api.coord([api.value(0),0])[1]-top;
+      return { type:'rect', shape:{x:x, y:top, width:w, height:h},
+        style:{ fill: dayColor(api.value(0)) } };
+    }});
+
+  chart.setOption({
+    animation:false,
+    grid:[{left:82,right:30,top:64,height:'56%'},{left:82,right:30,top:'77.5%',height:22}],
+    tooltip:{ trigger:'item', confine:true,
+      formatter:p=>{
+        const d=p.data; if(!d||!d.value) return '';
+        let h = '<div style="font-weight:800;font-size:13px">'+d.value[0]+'　'+fmtP(d.value[1])+'</div>';
+        if(d.kind) h += '<div style="color:#6b7280;font-size:11.5px;margin-top:2px">'+KIND_NAME[d.kind]+'</div>';
+        if(d.note) h += '<div style="max-width:260px;white-space:normal;font-size:12px;margin-top:4px;color:#374151">'+d.note+'</div>';
+        return h;
+      }},
+    xAxis:[
+      { type:'time', min:xmin, max:END, gridIndex:0,
+        axisLine:{show:false}, axisTick:{show:false},
+        axisLabel:{color:'#4b5563', fontFamily:'Arial', hideOverlap:true, formatter:v=>{const d=new Date(v);return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0');}},
+        splitLine:{show:false} },
+      { type:'time', min:xmin, max:END, gridIndex:1, axisLine:{show:false}, axisTick:{show:false}, axisLabel:{show:false}, splitLine:{show:false} }
+    ],
+    yAxis:[
+      { gridIndex:0, name:'', min:v=>Math.floor(v.min/500)*500-500, max:v=>Math.ceil(v.max/500)*500+500,
+        axisLabel:{color:'#4b5563', fontFamily:'Arial', formatter:v=>v.toLocaleString('zh-CN')},
+        splitLine:{lineStyle:{color:'#e5e7eb'}} },
+      { gridIndex:1, min:0, max:1, show:false }
+    ],
+    series
+  }, true);
+}
+
+function renderAll(){ renderSelectors(); renderMeta(); renderChart(); }
+
+/* 时间轴下拉 */
+(function(){
+  const items=[['full','全宽 · 适应窗口'],['m12','近 12 个月'],['m6','近 6 个月'],['m3','近 3 个月']];
+  const list=$('selRangeList');
+  items.forEach(([k,txt])=>{
+    const d=document.createElement('div'); d.className='sel-item'; d.textContent=txt;
+    d.onclick=e=>{ e.stopPropagation(); $('selRange').classList.remove('open'); range=k; renderAll(); };
+    list.appendChild(d);
+  });
+})();
+
+/* 整数价表 */
+(function(){
+  let h='<tr><th style="width:14%">月份</th><th style="width:24%">有 20% 台阶的机型</th><th style="width:28%">有 15% 台阶的机型</th><th>整数价占比</th></tr>';
+  IP_ROWS.forEach(r=>{
+    const [m,a,b,p,hot,bold]=r;
+    const cellA = (a==='—') ? '<span style="color:#9aa3ad">—</span>' : ((bold===1)?('<b>'+a+'</b>'):a);
+    const cellB = (bold===1&&b!=='—') ? '<b>'+b+'</b>' : b;
+    const cellP = hot ? '<td class="pct hot-pct">'+p+'</td>' : '<td class="pct">'+p+'</td>';
+    h+='<tr class="'+(hot?'hot hot-row-outline':'')+'"><td class="num" style="font-weight:600">'+m+'</td><td>'+cellA+'</td><td>'+cellB+'</td>'+cellP+'</tr>';
+  });
+  $('ipTable').innerHTML=h;
+})();
+
+window.addEventListener('resize',()=>chart.resize());
+renderAll();
+</script>
+</body>
+</html>

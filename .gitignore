@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 运行时
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 产物 / 临时文件
+output/
+tmp/
+*.log
+
+# 压缩包（技能包本身由仓库内容构成，不再入库 zip）
+*.zip
+
+# 密钥与凭据，永远不要提交
+.env
+*.pem
+id_rsa*
+id_ed25519*
